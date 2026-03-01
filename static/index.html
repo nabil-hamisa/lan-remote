@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111111">
+<title>LAN Remote</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #111111;
+    --surface: #1e1e1e;
+    --surface2: #2a2a2a;
+    --accent: #0a84ff;
+    --text: #f0f0f0;
+    --text2: #888;
+    --danger: #ff3b30;
+    --green: #30d158;
+    --radius: 14px;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    height: 100dvh;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* ── Header ── */
+  #header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 4px;
+    flex-shrink: 0;
+  }
+  #status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--text2);
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  #status-dot.connected { background: var(--green); }
+  #status-dot.disconnected { background: var(--danger); }
+  #header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    flex: 1;
+  }
+  #status-label { font-size: 12px; color: var(--text2); }
+
+  /* ── Trackpad ── */
+  #trackpad {
+    background: var(--surface);
+    border-radius: var(--radius);
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    cursor: crosshair;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: background 0.1s;
+  }
+  #trackpad.active { background: #252525; }
+  #trackpad-hint {
+    color: var(--text2);
+    font-size: 13px;
+    text-align: center;
+    pointer-events: none;
+    line-height: 1.6;
+  }
+  /* Corner dots */
+  .corner {
+    position: absolute;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--text2);
+    opacity: 0.4;
+  }
+  .corner.tl { top: 10px; left: 10px; }
+  .corner.tr { top: 10px; right: 10px; }
+  .corner.bl { bottom: 10px; left: 10px; }
+  .corner.br { bottom: 10px; right: 10px; }
+
+  /* ── Click buttons row ── */
+  #click-row {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .click-btn {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 8px;
+    cursor: pointer;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .click-btn:active { background: var(--surface2); }
+
+  /* ── Media + Volume row ── */
+  #media-vol-row {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  #media-group, #vol-group {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 6px;
+  }
+  .icon-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 20px;
+    padding: 8px 4px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .icon-btn:active { background: var(--surface2); }
+
+  /* ── Text input row ── */
+  #text-row {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+  #text-input {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 16px;
+    padding: 10px 14px;
+    outline: none;
+    -webkit-appearance: none;
+  }
+  #text-input::placeholder { color: var(--text2); }
+  #send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 18px;
+    padding: 10px 16px;
+    cursor: pointer;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #send-btn:active { opacity: 0.8; }
+
+  /* ── Special keys row ── */
+  #special-row {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  #special-row::-webkit-scrollbar { display: none; }
+  .key-btn {
+    background: var(--surface);
+    border: none;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .key-btn:active { background: var(--surface2); }
+
+  /* ── Power button (header) ── */
+  #btn-power {
+    background: var(--surface2);
+    border: none;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 15px;
+    padding: 6px 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    min-height: 32px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #btn-power:active { opacity: 0.7; }
+
+  /* ── Power overlay + bottom sheet ── */
+  #power-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    z-index: 99;
+  }
+  #power-overlay.show { display: block; }
+
+  #power-panel {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #1c1c1e;
+    border-radius: 20px 20px 0 0;
+    padding: 0 16px 32px;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    z-index: 100;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+  #power-panel.open { transform: translateY(0); }
+
+  #power-handle {
+    width: 36px; height: 4px;
+    background: #555;
+    border-radius: 2px;
+    margin: 10px auto 18px;
+  }
+
+  .power-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .pwr-btn {
+    flex: 1;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 14px 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 52px;
+  }
+  #btn-sleep-p  { background: var(--surface2); color: var(--text); }
+  #btn-shutdown-now { background: #3a1212; color: var(--danger); }
+  #btn-sleep-p:active, #btn-shutdown-now:active { opacity: 0.75; }
+
+  #power-divider {
+    height: 1px;
+    background: #333;
+    margin: 14px 0;
+  }
+
+  #power-schedule-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  #power-schedule-row > span { color: var(--text2); font-size: 13px; white-space: nowrap; }
+  #schedule-input {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 16px;
+    padding: 8px 12px;
+    outline: none;
+    min-width: 0;
+    -webkit-appearance: none;
+    text-align: center;
+  }
+  #unit-toggle {
+    display: flex;
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .unit-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text2);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 9px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+  }
+  .unit-btn.active { background: var(--surface2); color: var(--text); }
+  #btn-schedule {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    min-height: 40px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #btn-schedule:active { opacity: 0.8; }
+
+  #shutdown-status {
+    text-align: center;
+    font-size: 13px;
+    color: var(--danger);
+    min-height: 20px;
+    margin-bottom: 6px;
+  }
+
+  #btn-cancel-shutdown {
+    width: 100%;
+    background: #3a1212;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--danger);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px;
+    cursor: pointer;
+    display: none;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 48px;
+  }
+  #btn-cancel-shutdown:active { opacity: 0.8; }
+
+  /* ── Screen panel ── */
+  #btn-screen {
+    background: var(--surface2);
+    border: none;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 32px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #btn-screen.active { background: var(--accent); color: #fff; }
+
+  #screen-panel {
+    background: #000;
+    border-radius: var(--radius);
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-touch-callout: none;
+  }
+  #screen-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+  }
+  #screen-fps {
+    position: absolute;
+    top: 8px; right: 52px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    font-size: 11px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    pointer-events: none;
+  }
+
+  /* ── Landscape full-screen mode ── */
+  #screen-panel.landscape-full {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 50;
+    border-radius: 0 !important;
+  }
+  #screen-exit-btn {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 17px;
+    width: 36px; height: 36px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 51;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+  #screen-panel.landscape-full #screen-exit-btn { display: flex; }
+
+  /* ── Monitor picker bar (inside screen panel) ── */
+  #monitor-bar {
+    position: absolute;
+    top: 8px; left: 8px;
+    display: none;
+    gap: 6px;
+    z-index: 11;
+    flex-wrap: wrap;
+    max-width: calc(100% - 56px); /* leave room for exit btn */
+  }
+  #monitor-bar.visible { display: flex; }
+  .mon-btn {
+    background: rgba(0,0,0,0.65);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 36px;
+    white-space: nowrap;
+  }
+  .mon-btn.active { background: var(--accent); border-color: var(--accent); }
+
+  /* ── Software cursor overlay ── */
+  #screen-cursor {
+    position: absolute;
+    width: 18px; height: 18px;
+    border: 2.5px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1.5px rgba(0,0,0,0.75);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    display: none;
+    z-index: 10;
+  }
+  #screen-cursor::after {
+    content: '';
+    position: absolute;
+    width: 4px; height: 4px;
+    background: #fff;
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+  }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #333;
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    transition: transform 0.3s ease;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 999;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <div id="status-dot"></div>
+    <h1>LAN Remote</h1>
+    <span id="status-label">Connecting…</span>
+    <button id="btn-screen">🖥 Screen</button>
+    <button id="btn-power">⏻</button>
+  </div>
+
+  <!-- Screen view panel (shown instead of trackpad) -->
+  <div id="screen-panel">
+    <img id="screen-img" alt="">
+    <span id="screen-fps"></span>
+    <div id="monitor-bar"></div>
+    <div id="screen-cursor"></div>
+    <button id="screen-exit-btn">✕</button>
+  </div>
+
+  <!-- Trackpad -->
+  <div id="trackpad">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+    <span id="trackpad-hint">Drag to move mouse<br>Tap to click · Long press = right click<br>2 fingers = scroll</span>
+  </div>
+
+  <!-- Left / Right click buttons -->
+  <div id="click-row">
+    <button class="click-btn" id="btn-lclick">Left Click</button>
+    <button class="click-btn" id="btn-dclick">Double Click</button>
+    <button class="click-btn" id="btn-rclick">Right Click</button>
+  </div>
+
+  <!-- Media + Volume -->
+  <div id="media-vol-row">
+    <div id="media-group">
+      <button class="icon-btn" id="btn-prev" title="Previous">⏮</button>
+      <button class="icon-btn" id="btn-play" title="Play/Pause">⏯</button>
+      <button class="icon-btn" id="btn-next" title="Next">⏭</button>
+    </div>
+    <div id="vol-group">
+      <button class="icon-btn" id="btn-mute" title="Mute">🔇</button>
+      <button class="icon-btn" id="btn-vdown" title="Volume Down">🔉</button>
+      <button class="icon-btn" id="btn-vup" title="Volume Up">🔊</button>
+    </div>
+  </div>
+
+  <!-- Text input -->
+  <div id="text-row">
+    <input id="text-input" type="text" placeholder="Type text to send…"
+           autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false">
+    <button id="send-btn">↵</button>
+  </div>
+
+  <!-- Special keys -->
+  <div id="special-row">
+    <button class="key-btn" data-key="escape">Esc</button>
+    <button class="key-btn" data-key="tab">Tab</button>
+    <button class="key-btn" data-key="up">↑</button>
+    <button class="key-btn" data-key="down">↓</button>
+    <button class="key-btn" data-key="left">←</button>
+    <button class="key-btn" data-key="right">→</button>
+    <button class="key-btn" data-key="home">Home</button>
+    <button class="key-btn" data-key="end">End</button>
+    <button class="key-btn" data-key="delete">Del</button>
+    <button class="key-btn" data-key="backspace">⌫</button>
+  </div>
+
+</div>
+
+<!-- Power overlay backdrop -->
+<div id="power-overlay"></div>
+
+<!-- Power bottom sheet -->
+<div id="power-panel">
+  <div id="power-handle"></div>
+
+  <div class="power-row">
+    <button class="pwr-btn" id="btn-sleep-p">💤 Sleep</button>
+    <button class="pwr-btn" id="btn-shutdown-now">⏻ Shutdown now</button>
+  </div>
+
+  <div id="power-divider"></div>
+
+  <div id="power-schedule-row">
+    <span>Shutdown in</span>
+    <input id="schedule-input" type="number" min="1" max="480" value="30">
+    <div id="unit-toggle">
+      <button class="unit-btn active" data-unit="min">min</button>
+      <button class="unit-btn" data-unit="hr">hr</button>
+    </div>
+    <button id="btn-schedule">Set</button>
+  </div>
+
+  <div id="shutdown-status"></div>
+  <button id="btn-cancel-shutdown">✕ Cancel scheduled shutdown</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── WebSocket ────────────────────────────────────────────────────────────────
+let ws;
+let reconnectDelay = 1000;
+
+function connect() {
+  const url = `ws://${location.host}/ws`;
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setStatus('connected', 'Connected');
+    reconnectDelay = 1000;
+    document.getElementById('trackpad-hint').style.display = 'none';
+    checkShutdownStatus();
+  };
+
+  ws.onclose = () => {
+    setStatus('disconnected', 'Reconnecting…');
+    setTimeout(connect, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'error') showToast(msg.message);
+  };
+}
+
+function send(data) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(data));
+  }
+}
+
+function setStatus(cls, label) {
+  document.getElementById('status-dot').className = cls;
+  document.getElementById('status-label').textContent = label;
+}
+
+// ── Trackpad ─────────────────────────────────────────────────────────────────
+const pad = document.getElementById('trackpad');
+const SENSITIVITY = 1.6;
+const CLICK_MOVE_THRESHOLD = 5;
+const LONG_PRESS_MS = 500;
+const TAP_MAX_MS = 300;
+
+let lastX = 0, lastY = 0;
+let touchCount = 0;
+let tapMoved = false;
+let tapStartTime = 0;
+let totalMoveDelta = 0;
+let longPressTimer = null;
+let scrollAccumY = 0;
+
+pad.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  touchCount = e.touches.length;
+  lastX = e.touches[0].clientX;
+  lastY = e.touches[0].clientY;
+  tapMoved = false;
+  tapStartTime = Date.now();
+  totalMoveDelta = 0;
+  scrollAccumY = 0;
+  pad.classList.add('active');
+
+  longPressTimer = setTimeout(() => {
+    if (!tapMoved) {
+      send({ type: 'mouse_click', button: 'right' });
+      if (navigator.vibrate) navigator.vibrate(40);
+      tapMoved = true; // prevent tap-click after long press
+    }
+  }, LONG_PRESS_MS);
+}, { passive: false });
+
+pad.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const rawDx = t.clientX - lastX;
+  const rawDy = t.clientY - lastY;
+  lastX = t.clientX;
+  lastY = t.clientY;
+
+  totalMoveDelta += Math.abs(rawDx) + Math.abs(rawDy);
+  if (totalMoveDelta > CLICK_MOVE_THRESHOLD) {
+    tapMoved = true;
+    clearTimeout(longPressTimer);
+  }
+
+  if (e.touches.length === 1 && tapMoved) {
+    const dx = Math.round(rawDx * SENSITIVITY);
+    const dy = Math.round(rawDy * SENSITIVITY);
+    if (dx !== 0 || dy !== 0) send({ type: 'mouse_move', dx, dy });
+  } else if (e.touches.length === 2) {
+    scrollAccumY += rawDy;
+    const scrollTicks = Math.round(scrollAccumY / 20);
+    if (scrollTicks !== 0) {
+      send({ type: 'mouse_scroll', dx: 0, dy: -scrollTicks });
+      scrollAccumY -= scrollTicks * 20;
+    }
+  }
+}, { passive: false });
+
+pad.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  clearTimeout(longPressTimer);
+  pad.classList.remove('active');
+  const elapsed = Date.now() - tapStartTime;
+  if (!tapMoved && elapsed < TAP_MAX_MS) {
+    send({ type: 'mouse_click', button: 'left' });
+  }
+}, { passive: false });
+
+pad.addEventListener('touchcancel', (e) => {
+  clearTimeout(longPressTimer);
+  pad.classList.remove('active');
+}, { passive: false });
+
+// ── Click buttons ─────────────────────────────────────────────────────────────
+document.getElementById('btn-lclick').addEventListener('click', () =>
+  send({ type: 'mouse_click', button: 'left' }));
+document.getElementById('btn-rclick').addEventListener('click', () =>
+  send({ type: 'mouse_click', button: 'right' }));
+document.getElementById('btn-dclick').addEventListener('click', () =>
+  send({ type: 'mouse_double_click' }));
+
+// ── Media ─────────────────────────────────────────────────────────────────────
+document.getElementById('btn-prev').addEventListener('click', () =>
+  send({ type: 'media_prev' }));
+document.getElementById('btn-play').addEventListener('click', () =>
+  send({ type: 'media_play_pause' }));
+document.getElementById('btn-next').addEventListener('click', () =>
+  send({ type: 'media_next' }));
+
+// ── Volume ────────────────────────────────────────────────────────────────────
+document.getElementById('btn-mute').addEventListener('click', () =>
+  send({ type: 'volume_mute' }));
+document.getElementById('btn-vdown').addEventListener('click', () =>
+  send({ type: 'volume_down' }));
+document.getElementById('btn-vup').addEventListener('click', () =>
+  send({ type: 'volume_up' }));
+
+// ── Text input ────────────────────────────────────────────────────────────────
+const textInput = document.getElementById('text-input');
+
+function sendText() {
+  const val = textInput.value;
+  if (val) {
+    send({ type: 'key_text', text: val });
+    textInput.value = '';
+  }
+}
+
+document.getElementById('send-btn').addEventListener('click', sendText);
+textInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); sendText(); }
+});
+
+// ── Special keys ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.key-btn').forEach(btn => {
+  btn.addEventListener('click', () =>
+    send({ type: 'key_special', key: btn.dataset.key }));
+});
+
+// ── Power panel ───────────────────────────────────────────────────────────────
+let shutdownTimer = null;
+let shutdownEndsAt = null;
+
+function openPower()  { document.getElementById('power-panel').classList.add('open');    document.getElementById('power-overlay').classList.add('show'); }
+function closePower() { document.getElementById('power-panel').classList.remove('open'); document.getElementById('power-overlay').classList.remove('show'); }
+
+document.getElementById('btn-power').addEventListener('click', openPower);
+document.getElementById('power-overlay').addEventListener('click', closePower);
+document.getElementById('power-handle').addEventListener('click', closePower);
+
+document.getElementById('btn-sleep-p').addEventListener('click', () => {
+  if (confirm('Put PC to sleep?')) { send({ type: 'system_sleep' }); closePower(); }
+});
+
+document.getElementById('btn-shutdown-now').addEventListener('click', () => {
+  if (confirm('Shut down the PC?\n\nYou have 10 seconds to cancel.')) {
+    send({ type: 'system_shutdown' });
+    startCountdown(10 / 60);
+    closePower();
+    showToast('Shutdown in 10s');
+  }
+});
+
+let scheduleUnit = 'min';
+document.querySelectorAll('.unit-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    scheduleUnit = btn.dataset.unit;
+    document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('schedule-input').max = scheduleUnit === 'hr' ? 24 : 480;
+  });
+});
+
+document.getElementById('btn-schedule').addEventListener('click', () => {
+  const val = parseInt(document.getElementById('schedule-input').value);
+  if (!val || val < 1) return;
+  const mins = scheduleUnit === 'hr' ? val * 60 : val;
+  const label = scheduleUnit === 'hr'
+    ? `${val} hour${val === 1 ? '' : 's'}`
+    : `${val} minute${val === 1 ? '' : 's'}`;
+  if (confirm(`Schedule shutdown in ${label}?`)) {
+    send({ type: 'system_shutdown_scheduled', minutes: mins });
+    startCountdown(mins);
+    closePower();
+    showToast(`Shutdown in ${label}`);
+  }
+});
+
+document.getElementById('btn-cancel-shutdown').addEventListener('click', () => {
+  send({ type: 'system_shutdown_cancel' });
+  clearCountdown();
+  showToast('Shutdown cancelled');
+  closePower();
+});
+
+function startCountdown(minutes) {
+  clearCountdown();
+  shutdownEndsAt = Date.now() + minutes * 60 * 1000;
+  document.getElementById('btn-cancel-shutdown').style.display = 'block';
+  updateCountdown();
+  shutdownTimer = setInterval(updateCountdown, 1000);
+}
+
+function clearCountdown() {
+  clearInterval(shutdownTimer);
+  shutdownTimer = null; shutdownEndsAt = null;
+  document.getElementById('btn-cancel-shutdown').style.display = 'none';
+  document.getElementById('shutdown-status').textContent = '';
+}
+
+function updateCountdown() {
+  if (!shutdownEndsAt) return;
+  const ms = Math.max(0, shutdownEndsAt - Date.now());
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  document.getElementById('shutdown-status').textContent =
+    ms > 0 ? `Shutdown in ${m}:${String(s).padStart(2,'0')}` : '';
+  if (ms === 0) clearCountdown();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Screen view ───────────────────────────────────────────────────────────────
+let screenActive = false;
+let screenTimer = null;
+let screenW = 1920, screenH = 1080;
+let activeMonitor = 1;
+let cursorAbsX = -1, cursorAbsY = -1;  // last known cursor position on PC screen
+const SCREEN_FPS = 8;
+const SCREEN_QUALITY = 55;
+
+async function loadMonitors() {
+  try {
+    const r = await fetch('/api/monitors');
+    const d = await r.json();
+    const bar = document.getElementById('monitor-bar');
+    bar.innerHTML = '';
+    if (d.monitors.length <= 1) { bar.classList.remove('visible'); return; }
+    d.monitors.forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'mon-btn' + (m.index === activeMonitor ? ' active' : '');
+      btn.textContent = `Display ${m.index}  ${m.width}×${m.height}`;
+      btn.addEventListener('click', async () => {
+        activeMonitor = m.index;
+        bar.querySelectorAll('.mon-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        try {
+          const ri = await fetch(`/api/info?monitor=${activeMonitor}`);
+          const di = await ri.json();
+          screenW = di.screen_width; screenH = di.screen_height;
+        } catch(e) {}
+        document.getElementById('screen-cursor').style.display = 'none';
+      });
+      bar.appendChild(btn);
+    });
+    bar.classList.add('visible');
+  } catch(e) {}
+}
+
+async function startScreen() {
+  try {
+    const r = await fetch(`/api/info?monitor=${activeMonitor}`);
+    const d = await r.json();
+    screenW = d.screen_width; screenH = d.screen_height;
+  } catch(e) {}
+  await loadMonitors();
+  fetchFrame();
+}
+
+async function fetchFrame() {
+  if (!screenActive) return;
+  const t0 = Date.now();
+  try {
+    const r = await fetch(`/screenshot?quality=${SCREEN_QUALITY}&monitor=${activeMonitor}&t=${t0}`);
+    if (r.ok) {
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const img = document.getElementById('screen-img');
+      const old = img.src;
+      img.src = url;
+      if (old.startsWith('blob:')) URL.revokeObjectURL(old);
+      document.getElementById('screen-fps').textContent = `${Date.now() - t0}ms`;
+    }
+  } catch(e) {}
+  if (screenActive) {
+    const elapsed = Date.now() - t0;
+    screenTimer = setTimeout(fetchFrame, Math.max(0, 1000 / SCREEN_FPS - elapsed));
+  }
+}
+
+function updateScreenLayout() {
+  const panel = document.getElementById('screen-panel');
+  if (!screenActive) return;
+  const isLandscape = window.innerWidth > window.innerHeight;
+  panel.classList.toggle('landscape-full', isLandscape);
+}
+
+function toggleScreen() {
+  screenActive = !screenActive;
+  const panel = document.getElementById('screen-panel');
+  const pad   = document.getElementById('trackpad');
+  const btn   = document.getElementById('btn-screen');
+  if (screenActive) {
+    pad.style.display = 'none';
+    panel.style.display = 'flex';
+    btn.classList.add('active');
+    btn.textContent = '🖥 Hide';
+    startScreen();
+    updateScreenLayout();
+  } else {
+    clearTimeout(screenTimer);
+    panel.classList.remove('landscape-full');
+    pad.style.display = 'flex';
+    panel.style.display = 'none';
+    btn.classList.remove('active');
+    btn.textContent = '🖥 Screen';
+    const img = document.getElementById('screen-img');
+    if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    img.src = '';
+    document.getElementById('screen-fps').textContent = '';
+    document.getElementById('screen-cursor').style.display = 'none';
+    document.getElementById('monitor-bar').classList.remove('visible');
+    cursorAbsX = -1; cursorAbsY = -1;
+  }
+}
+
+window.addEventListener('resize', updateScreenLayout);
+document.getElementById('btn-screen').addEventListener('click', toggleScreen);
+document.getElementById('screen-exit-btn').addEventListener('click', toggleScreen);
+
+// Screen panel touch — tap = absolute click, drag = relative move, 2-finger = scroll
+const screenPanel = document.getElementById('screen-panel');
+
+function screenCoords(touch) {
+  const img = document.getElementById('screen-img');
+  const rect = img.getBoundingClientRect();
+  // Account for object-fit: contain letterboxing
+  const imgAspect = screenW / screenH;
+  const boxAspect = rect.width / rect.height;
+  let dW, dH, ox, oy;
+  if (imgAspect > boxAspect) {
+    dW = rect.width; dH = rect.width / imgAspect;
+    ox = 0;          oy = (rect.height - dH) / 2;
+  } else {
+    dH = rect.height; dW = rect.height * imgAspect;
+    ox = (rect.width - dW) / 2; oy = 0;
+  }
+  const x = Math.round(((touch.clientX - rect.left - ox) / dW) * screenW);
+  const y = Math.round(((touch.clientY - rect.top  - oy) / dH) * screenH);
+  return { x: Math.max(0, Math.min(screenW - 1, x)),
+           y: Math.max(0, Math.min(screenH - 1, y)) };
+}
+
+function updateScreenCursor(sx, sy) {
+  const cursor = document.getElementById('screen-cursor');
+  const img = document.getElementById('screen-img');
+  if (!img.complete || img.naturalWidth === 0 || screenW === 0 || screenH === 0) {
+    cursor.style.display = 'none'; return;
+  }
+  const imgRect   = img.getBoundingClientRect();
+  const panelRect = screenPanel.getBoundingClientRect();
+  const imgAspect = screenW / screenH;
+  const boxAspect = imgRect.width / imgRect.height;
+  let dW, dH, ox, oy;
+  if (imgAspect > boxAspect) {
+    dW = imgRect.width; dH = imgRect.width / imgAspect;
+    ox = 0; oy = (imgRect.height - dH) / 2;
+  } else {
+    dH = imgRect.height; dW = imgRect.height * imgAspect;
+    ox = (imgRect.width - dW) / 2; oy = 0;
+  }
+  cursor.style.left = (imgRect.left - panelRect.left + ox + (sx / screenW) * dW) + 'px';
+  cursor.style.top  = (imgRect.top  - panelRect.top  + oy + (sy / screenH) * dH) + 'px';
+  cursor.style.display = 'block';
+}
+
+screenPanel.addEventListener('touchstart', (e) => {
+  if (e.target.closest('#screen-exit-btn') || e.target.closest('#monitor-bar')) return;
+  e.preventDefault();
+  touchCount = e.touches.length;
+  lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+  tapMoved = false; tapStartTime = Date.now();
+  totalMoveDelta = 0; scrollAccumY = 0;
+  longPressTimer = setTimeout(() => {
+    if (!tapMoved) {
+      const p = screenCoords(e.touches[0]);
+      send({ type: 'mouse_move_to', x: p.x, y: p.y });
+      send({ type: 'mouse_click', button: 'right' });
+      cursorAbsX = p.x; cursorAbsY = p.y;
+      updateScreenCursor(p.x, p.y);
+      if (navigator.vibrate) navigator.vibrate(40);
+      tapMoved = true;
+    }
+  }, LONG_PRESS_MS);
+}, { passive: false });
+
+screenPanel.addEventListener('touchmove', (e) => {
+  if (e.target.closest('#screen-exit-btn') || e.target.closest('#monitor-bar')) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const rawDx = t.clientX - lastX; const rawDy = t.clientY - lastY;
+  lastX = t.clientX; lastY = t.clientY;
+  totalMoveDelta += Math.abs(rawDx) + Math.abs(rawDy);
+  if (totalMoveDelta > CLICK_MOVE_THRESHOLD) { tapMoved = true; clearTimeout(longPressTimer); }
+  if (e.touches.length === 1 && tapMoved) {
+    const dx = Math.round(rawDx * SENSITIVITY); const dy = Math.round(rawDy * SENSITIVITY);
+    if (dx !== 0 || dy !== 0) {
+      send({ type: 'mouse_move', dx, dy });
+      if (cursorAbsX >= 0) {
+        cursorAbsX = Math.max(0, Math.min(screenW - 1, cursorAbsX + dx));
+        cursorAbsY = Math.max(0, Math.min(screenH - 1, cursorAbsY + dy));
+        updateScreenCursor(cursorAbsX, cursorAbsY);
+      }
+    }
+  } else if (e.touches.length === 2) {
+    scrollAccumY += rawDy;
+    const ticks = Math.round(scrollAccumY / 20);
+    if (ticks !== 0) { send({ type: 'mouse_scroll', dx: 0, dy: -ticks }); scrollAccumY -= ticks * 20; }
+  }
+}, { passive: false });
+
+screenPanel.addEventListener('touchend', (e) => {
+  if (e.target.closest('#screen-exit-btn') || e.target.closest('#monitor-bar')) return;
+  e.preventDefault();
+  clearTimeout(longPressTimer);
+  if (!tapMoved && Date.now() - tapStartTime < TAP_MAX_MS) {
+    const p = screenCoords(e.changedTouches[0]);
+    send({ type: 'mouse_move_to', x: p.x, y: p.y });
+    send({ type: 'mouse_click', button: 'left' });
+    cursorAbsX = p.x; cursorAbsY = p.y;
+    updateScreenCursor(p.x, p.y);
+  }
+}, { passive: false });
+
+screenPanel.addEventListener('touchcancel', (e) => {
+  if (e.target.closest('#screen-exit-btn') || e.target.closest('#monitor-bar')) return;
+  clearTimeout(longPressTimer);
+}, { passive: false });
+
+// ── Shutdown status restore on (re)connect ────────────────────────────────────
+async function checkShutdownStatus() {
+  if (shutdownEndsAt) return; // already tracking, don't override
+  try {
+    const r = await fetch('/api/shutdown-status');
+    const d = await r.json();
+    if (d.pending && d.seconds_remaining > 1) {
+      startCountdown(d.seconds_remaining / 60);
+    }
+  } catch(e) {}
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pynput==1.7.7
+zeroconf==0.131.0
+mss==9.0.2
+Pillow>=11.1.0
