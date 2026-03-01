@@ -1,5 +1,7 @@
 # LAN Remote
 
+<img src="static/favicon.svg" width="80" alt="LAN Remote icon">
+
 Control your Windows PC from your iPhone over Wi-Fi — no app store, no Mac needed.
 
 ## Requirements
