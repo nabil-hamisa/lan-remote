@@ -1038,11 +1038,7 @@ screenPanel.addEventListener('touchstart', (e) => {
   totalMoveDelta = 0; scrollAccumY = 0;
   longPressTimer = setTimeout(() => {
     if (!tapMoved) {
-      const p = screenCoords(e.touches[0]);
-      send({ type: 'mouse_move_to', x: p.x, y: p.y });
       send({ type: 'mouse_click', button: 'right' });
-      cursorAbsX = p.x; cursorAbsY = p.y;
-      updateScreenCursor(p.x, p.y);
       if (navigator.vibrate) navigator.vibrate(40);
       tapMoved = true;
     }
